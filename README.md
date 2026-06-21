@@ -79,11 +79,14 @@ Set the same `EBAY_*` values under **Function App → Configuration → Applicat
 
 ## Configuration
 
-| Variable | Used by | Description |
-|----------|---------|-------------|
-| `EBAY_VERIFICATION_TOKEN` | both | Token you also enter in the eBay portal (32–80 chars). |
-| `EBAY_ENDPOINT_URL` | account-deletion | Exact public HTTPS URL of the account-deletion function (used in the hash). |
-| `EBAY_PLATFORM_ENDPOINT_URL` | notifications | Exact public HTTPS URL of the notifications function (used in the hash). |
+| Variable | Required | Used by | Description |
+|----------|----------|---------|-------------|
+| `EBAY_VERIFICATION_TOKEN` | yes | both | Token you also enter in the eBay portal (32–80 chars). |
+| `EBAY_ENDPOINT_URL` | yes | account-deletion | Exact public HTTPS URL of the account-deletion function (used in the hash). |
+| `EBAY_PLATFORM_ENDPOINT_URL` | yes | notifications | Exact public HTTPS URL of the notifications function (used in the hash). |
+| `EBAY_CLIENT_ID` | optional | signature | App (client) ID — enables `x-ebay-signature` verification (see below). |
+| `EBAY_CLIENT_SECRET` | optional | signature | App (client) secret — enables `x-ebay-signature` verification. |
+| `EBAY_API_BASE_URL` | optional | signature | eBay API base, defaults to `https://api.ebay.com` (use `https://api.sandbox.ebay.com` for sandbox). |
 
 Values are read from environment variables / App Settings — **never hardcode them**. `local.settings.json` is git-ignored.
 
@@ -115,9 +118,15 @@ EbayAccountDeletionWebhook/
 └─ host.json
 ```
 
-## Roadmap / notes
+## Signature verification
 
-- The `POST` path currently trusts the payload after parsing. For defence in depth you can additionally verify the `x-ebay-signature` header against eBay's public key (Notification API `getPublicKey`) before processing.
+Both `POST` handlers can verify the `x-ebay-signature` header before trusting the payload:
+
+1. The header is Base64-encoded JSON (`alg`, `kid`, `signature`, `digest`).
+2. eBay's public key is fetched from the Notification API (`getPublicKey`) using an app OAuth token obtained via client-credentials, then cached (~1h for the key, until expiry for the token).
+3. The signature (DER-encoded) is verified with **ECDSA / SHA-1** over the raw request body.
+
+This is **opt-in**: set `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` to enable it. When they are set, a notification whose signature does not validate is rejected with **HTTP 412 Precondition Failed** (eBay will retry). When they are absent, verification is skipped (a warning is logged) and the endpoint behaves as before — so the challenge flow keeps working without OAuth credentials.
 
 ## Related guides
 

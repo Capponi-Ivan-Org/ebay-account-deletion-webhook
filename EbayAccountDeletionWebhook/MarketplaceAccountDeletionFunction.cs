@@ -1,4 +1,5 @@
 using EbayAccountDeletionWebhook.Models;
+using EbayAccountDeletionWebhook.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -12,26 +13,30 @@ namespace EbayAccountDeletionWebhook.Functions;
 public class MarketplaceAccountDeletionFunction
 {
     private readonly ILogger<MarketplaceAccountDeletionFunction> _logger;
+    private readonly IEbayNotificationVerifier _verifier;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public MarketplaceAccountDeletionFunction(ILogger<MarketplaceAccountDeletionFunction> logger)
+    public MarketplaceAccountDeletionFunction(
+        ILogger<MarketplaceAccountDeletionFunction> logger, IEbayNotificationVerifier verifier)
     {
         _logger = logger;
+        _verifier = verifier;
     }
 
     [Function("MarketplaceAccountDeletion")]
     public async Task<IActionResult> Run(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "ebay/account-deletion")]
-        HttpRequest req)
+        HttpRequest req,
+        CancellationToken ct)
     {
         if (req.Method == HttpMethods.Get)
             return HandleChallengeVerification(req);
 
-        return await HandleAccountDeletionNotification(req);
+        return await HandleAccountDeletionNotification(req, ct);
     }
 
     private IActionResult HandleChallengeVerification(HttpRequest req)
@@ -78,13 +83,15 @@ public class MarketplaceAccountDeletionFunction
         return new OkObjectResult(new ChallengeVerificationResponse { Value = hashHex });
     }
 
-    private async Task<IActionResult> HandleAccountDeletionNotification(HttpRequest req)
+    private async Task<IActionResult> HandleAccountDeletionNotification(HttpRequest req, CancellationToken ct)
     {
-        string body;
+        // Read the raw body bytes: the signature is computed over the exact bytes received.
+        byte[] body;
         try
         {
-            using var reader = new StreamReader(req.Body, Encoding.UTF8);
-            body = await reader.ReadToEndAsync();
+            using var ms = new MemoryStream();
+            await req.Body.CopyToAsync(ms, ct);
+            body = ms.ToArray();
         }
         catch (Exception ex)
         {
@@ -92,10 +99,19 @@ public class MarketplaceAccountDeletionFunction
             return new OkResult();
         }
 
-        if (string.IsNullOrWhiteSpace(body))
+        if (body.Length == 0)
         {
             _logger.LogWarning("Body POST vuoto");
             return new OkResult();
+        }
+
+        // Verify the x-ebay-signature before trusting the payload.
+        var signature = req.Headers["x-ebay-signature"].FirstOrDefault();
+        var verification = await _verifier.VerifyAsync(signature, body, ct);
+        if (verification == SignatureVerificationResult.Invalid)
+        {
+            _logger.LogWarning("Notifica rifiutata: x-ebay-signature non valida");
+            return new StatusCodeResult(StatusCodes.Status412PreconditionFailed);
         }
 
         MarketplaceAccountDeletionPayload? payload;
@@ -105,13 +121,13 @@ public class MarketplaceAccountDeletionFunction
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "JSON non valido. Body: {Body}", body);
+            _logger.LogError(ex, "JSON non valido ({Bytes} byte)", body.Length);
             return new OkResult();
         }
 
         if (payload?.Notification?.Data == null)
         {
-            _logger.LogWarning("Payload incompleto: {Body}", body);
+            _logger.LogWarning("Payload incompleto ({Bytes} byte)", body.Length);
             return new OkResult();
         }
 

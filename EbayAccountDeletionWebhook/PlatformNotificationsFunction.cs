@@ -1,4 +1,5 @@
 ﻿using EbayAccountDeletionWebhook.Models;
+using EbayAccountDeletionWebhook.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -18,6 +19,7 @@ namespace EbayAccountDeletionWebhook;
 public class PlatformNotificationsFunction
 {
     private readonly ILogger<PlatformNotificationsFunction> _logger;
+    private readonly IEbayNotificationVerifier _verifier;
 
     private static readonly string VerificationToken =
         Environment.GetEnvironmentVariable("EBAY_VERIFICATION_TOKEN") ?? string.Empty;
@@ -30,20 +32,23 @@ public class PlatformNotificationsFunction
         PropertyNameCaseInsensitive = true
     };
 
-    public PlatformNotificationsFunction(ILogger<PlatformNotificationsFunction> logger)
+    public PlatformNotificationsFunction(
+        ILogger<PlatformNotificationsFunction> logger, IEbayNotificationVerifier verifier)
     {
         _logger = logger;
+        _verifier = verifier;
     }
 
     [Function("PlatformNotifications")]
     public async Task<IActionResult> Run(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "ebay/notifications")]
-        HttpRequest req)
+        HttpRequest req,
+        CancellationToken ct)
     {
         if (req.Method == HttpMethods.Get)
             return HandleChallengeVerification(req);
 
-        return await HandlePlatformNotification(req);
+        return await HandlePlatformNotification(req, ct);
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -78,13 +83,15 @@ public class PlatformNotificationsFunction
     // ────────────────────────────────────────────────────────────────────────
     // POST — notifica evento eBay
     // ────────────────────────────────────────────────────────────────────────
-    private async Task<IActionResult> HandlePlatformNotification(HttpRequest req)
+    private async Task<IActionResult> HandlePlatformNotification(HttpRequest req, CancellationToken ct)
     {
-        string body;
+        // Read the raw body bytes: the signature is computed over the exact bytes received.
+        byte[] body;
         try
         {
-            using var reader = new StreamReader(req.Body, Encoding.UTF8);
-            body = await reader.ReadToEndAsync();
+            using var ms = new MemoryStream();
+            await req.Body.CopyToAsync(ms, ct);
+            body = ms.ToArray();
         }
         catch (Exception ex)
         {
@@ -92,10 +99,19 @@ public class PlatformNotificationsFunction
             return new OkResult(); // 200 comunque per non far ritrasmettere
         }
 
-        if (string.IsNullOrWhiteSpace(body))
+        if (body.Length == 0)
         {
             _logger.LogWarning("Body POST vuoto");
             return new OkResult();
+        }
+
+        // Verify the x-ebay-signature before trusting the payload.
+        var signature = req.Headers["x-ebay-signature"].FirstOrDefault();
+        var verification = await _verifier.VerifyAsync(signature, body, ct);
+        if (verification == SignatureVerificationResult.Invalid)
+        {
+            _logger.LogWarning("Notifica rifiutata: x-ebay-signature non valida");
+            return new StatusCodeResult(StatusCodes.Status412PreconditionFailed);
         }
 
         MarketplaceAccountDeletionPayload? payload;
@@ -105,13 +121,13 @@ public class PlatformNotificationsFunction
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "JSON non valido. Body: {Body}", body);
+            _logger.LogError(ex, "JSON non valido ({Bytes} byte)", body.Length);
             return new OkResult();
         }
 
         if (payload?.Notification == null)
         {
-            _logger.LogWarning("Payload incompleto: {Body}", body);
+            _logger.LogWarning("Payload incompleto ({Bytes} byte)", body.Length);
             return new OkResult();
         }
 

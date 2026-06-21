@@ -1,10 +1,10 @@
-# eBay Account Deletion Webhook — Azure Functions (.NET 8)
+# eBay Account Deletion Webhook — Azure Functions (.NET 10)
 
-[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![Azure Functions](https://img.shields.io/badge/Azure%20Functions-v4%20isolated-0062AD)](https://learn.microsoft.com/azure/azure-functions/dotnet-isolated-process-guide)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Production-ready endpoints in C# / .NET 8 on **Azure Functions** (isolated worker) for two mandatory eBay integration requirements:
+Production-ready endpoints in C# / .NET 10 on **Azure Functions** (isolated worker) for two mandatory eBay integration requirements:
 
 | Function | Route | Purpose |
 |----------|-------|---------|
@@ -60,7 +60,7 @@ func start
 az functionapp create \
   --name <app-name> --resource-group <rg> \
   --consumption-plan-location westeurope \
-  --runtime dotnet-isolated --runtime-version 8 \
+  --runtime dotnet-isolated --runtime-version 10 \
   --functions-version 4 --storage-account <storage>
 
 func azure functionapp publish <app-name>

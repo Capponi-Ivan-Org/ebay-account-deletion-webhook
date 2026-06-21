@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Visual Studio publish / service-dependency artifacts (environment-specific resource names)
+**/Properties/ServiceDependencies/
+**/Properties/serviceDependencies.*.json

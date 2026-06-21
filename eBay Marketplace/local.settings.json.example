@@ -1,0 +1,10 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "EBAY_VERIFICATION_TOKEN": "<32-80 chars: letters, numbers, - and _>",
+    "EBAY_ENDPOINT_URL": "https://<app>.azurewebsites.net/api/ebay/account-deletion",
+    "EBAY_PLATFORM_ENDPOINT_URL": "https://<app>.azurewebsites.net/api/ebay/notifications"
+  }
+}

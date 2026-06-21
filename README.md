@@ -1,4 +1,4 @@
-# eBay Marketplace — Azure Functions (.NET 8)
+# eBay Account Deletion Webhook — Azure Functions (.NET 8)
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
 [![Azure Functions](https://img.shields.io/badge/Azure%20Functions-v4%20isolated-0062AD)](https://learn.microsoft.com/azure/azure-functions/dotnet-isolated-process-guide)
@@ -25,8 +25,8 @@ Both expose the same two-part contract eBay expects on a single HTTPS URL:
 ### 1 — Clone
 
 ```bash
-git clone https://github.com/Capponi-Ivan-Org/eBay-Marketplace.git
-cd "eBay-Marketplace/eBay Marketplace"
+git clone https://github.com/Capponi-Ivan-Org/ebay-account-deletion-webhook.git
+cd "ebay-account-deletion-webhook/EbayAccountDeletionWebhook"
 ```
 
 ### 2 — Configure
@@ -107,7 +107,7 @@ Keep it **idempotent** — eBay may deliver the same notification more than once
 ## Project layout
 
 ```
-eBay Marketplace/
+EbayAccountDeletionWebhook/
 ├─ MarketplaceAccountDeletionFunction.cs   # /api/ebay/account-deletion
 ├─ PlatformNotificationsFunction.cs        # /api/ebay/notifications
 ├─ Models/EbayNotification.cs              # payload + challenge response DTOs

@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace eBay_Marketplace.Models;
+namespace EbayAccountDeletionWebhook.Models;
 
 public class MarketplaceAccountDeletionPayload
 {

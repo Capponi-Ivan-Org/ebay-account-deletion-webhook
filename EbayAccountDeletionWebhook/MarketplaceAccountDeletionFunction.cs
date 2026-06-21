@@ -1,4 +1,4 @@
-using eBay_Marketplace.Models;
+using EbayAccountDeletionWebhook.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace eBay_Marketplace.Functions;
+namespace EbayAccountDeletionWebhook.Functions;
 
 public class MarketplaceAccountDeletionFunction
 {
